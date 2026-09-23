@@ -1,0 +1,34 @@
+# Bases de datos
+*.xlsx
+*.xls
+*.csv
+*.parquet
+*.duckdb
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Editores
+.vscode/
+.idea/
+
+# Archivos temporales
+*.tmp
+*.temp
+~$*
+
+# Secretos de Streamlit
+.streamlit/secrets.toml
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
