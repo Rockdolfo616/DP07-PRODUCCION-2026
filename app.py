@@ -10,6 +10,7 @@ NO carga Excel, NO contiene PCTE_IDE, NO contiene ATEMED_ID y NO necesita
 acceso a la base confidencial.
 """
 
+import io
 import json
 import sqlite3
 from pathlib import Path
@@ -34,9 +35,29 @@ ETNIAS_ORDEN = [
     "Mulato", "Negro", "No Aplica", "No sabe/ no responde", "Otro"
 ]
 
-st.set_page_config(page_title="Producción - Consultas y Atenciones", layout="wide")
+st.set_page_config(
+    page_title="DP El Oro - Consultas y Atenciones",
+    page_icon="📊",
+    layout="wide"
+)
+
+st.markdown("""
+<style>
+.block-container {padding-top: 2rem; padding-bottom: 3rem;}
+div[data-testid="stMetric"] {
+    border: 1px solid rgba(49, 51, 63, 0.18);
+    padding: 1rem;
+    border-radius: 0.6rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("TOTAL DE CONSULTAS Y ATENCIONES")
-st.caption("Dashboard de resultados agregados — la base confidencial no se publica")
+st.markdown("**DIRECCIÓN PROVINCIAL DE EL ORO**")
+st.caption(
+    "Producción de establecimientos de salud — resultados estadísticos agregados. "
+    "Fuente: PRAS 2026."
+)
 
 def formato_numero(x):
     try:
@@ -137,6 +158,34 @@ def tabla_especialidad(payload):
         columnas.append(tuple(p) if len(p) > 1 else (p[0], ""))
     df.columns = pd.MultiIndex.from_tuples(columnas)
     return df
+
+def dataframe_a_excel_bytes(df, nombre_hoja="Tabla"):
+    """Genera un XLSX en memoria únicamente a partir de una tabla agregada."""
+    salida = io.BytesIO()
+    with pd.ExcelWriter(salida, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name=nombre_hoja[:31])
+    salida.seek(0)
+    return salida.getvalue()
+
+def libro_completo_excel(tablas):
+    """Genera un libro XLSX con todas las tablas agregadas visibles."""
+    salida = io.BytesIO()
+    with pd.ExcelWriter(salida, engine="openpyxl") as writer:
+        for nombre, df in tablas.items():
+            if df is not None and not df.empty:
+                df.to_excel(writer, sheet_name=nombre[:31])
+    salida.seek(0)
+    return salida.getvalue()
+
+def boton_descarga_excel(df, nombre_archivo, nombre_hoja, key):
+    if df is not None and not df.empty:
+        st.download_button(
+            "⬇️ Descargar tabla en Excel",
+            data=dataframe_a_excel_bytes(df, nombre_hoja),
+            file_name=nombre_archivo,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=key,
+        )
 
 def mostrar_perfil(payload, nombre, numero_causas):
     st.subheader(nombre)
@@ -277,26 +326,30 @@ if activos:
 # ---------------------------------------------------------------------
 st.markdown("---")
 st.subheader("Total de consultas y atenciones por Especialidad")
-t = tabla_especialidad(resultado["especialidad"])
-st.dataframe(estilo_tabla(t), use_container_width=True)
+tabla_esp = tabla_especialidad(resultado["especialidad"])
+st.dataframe(estilo_tabla(tabla_esp), use_container_width=True)
+boton_descarga_excel(tabla_esp, "consultas_atenciones_especialidad.xlsx", "Especialidad", "dl_esp")
 st.caption("Fuente: PRAS 2026")
 
 st.markdown("---")
 st.subheader("Total de Atenciones por Nivel de Atención y Mes")
-t = payload_a_df(resultado["nivel_mes"], "Nivel de Atención")
-st.dataframe(estilo_tabla(t).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
+tabla_nivel = payload_a_df(resultado["nivel_mes"], "Nivel de Atención")
+st.dataframe(estilo_tabla(tabla_nivel).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
+boton_descarga_excel(tabla_nivel, "atenciones_nivel_mes.xlsx", "Nivel por mes", "dl_nivel")
 st.caption("Fuente: PRAS 2026")
 
 st.markdown("---")
 st.subheader("Total de Atenciones por Nacionalidad y Mes")
-t = payload_a_df(resultado["nacionalidad_mes"], "Nacionalidad")
-st.dataframe(estilo_tabla(t).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
+tabla_nac = payload_a_df(resultado["nacionalidad_mes"], "Nacionalidad")
+st.dataframe(estilo_tabla(tabla_nac).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
+boton_descarga_excel(tabla_nac, "atenciones_nacionalidad_mes.xlsx", "Nacionalidad por mes", "dl_nac")
 st.caption("Fuente: PRAS 2026")
 
 st.markdown("---")
 st.subheader("Total de Atenciones por Cantón y Mes")
-t = payload_a_df(resultado["canton_mes"], "Cantón")
-st.dataframe(estilo_tabla(t).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
+tabla_canton = payload_a_df(resultado["canton_mes"], "Cantón")
+st.dataframe(estilo_tabla(tabla_canton).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
+boton_descarga_excel(tabla_canton, "atenciones_canton_mes.xlsx", "Cantón por mes", "dl_canton")
 st.caption("Fuente: PRAS 2026")
 
 st.markdown("---")
@@ -309,6 +362,7 @@ else:
         estilo_tabla(emb).set_properties(subset=["Total"], **{"font-weight": "bold"}),
         use_container_width=True
     )
+    boton_descarga_excel(emb, "numero_embarazadas.xlsx", "Embarazadas", "dl_emb")
     st.caption("Fuente: PRAS 2026")
     st.caption(
         "Criterio: pacientes únicas por PCTE_IDE; cédulas de 9 dígitos se homologan "
@@ -316,6 +370,26 @@ else:
         "número de registros por paciente. Los identificadores no forman parte "
         "de la base publicada."
     )
+
+st.markdown("---")
+st.subheader("DESCARGA DE RESULTADOS AGREGADOS")
+tablas_exportar = {
+    "Especialidad": tabla_esp,
+    "Nivel_mes": tabla_nivel,
+    "Nacionalidad_mes": tabla_nac,
+    "Canton_mes": tabla_canton,
+}
+if not emb.empty:
+    tablas_exportar["Embarazadas"] = emb
+
+st.download_button(
+    "📥 Descargar tablas principales en un solo Excel",
+    data=libro_completo_excel(tablas_exportar),
+    file_name="DP07_resultados_agregados.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    key="dl_todo",
+)
+st.caption("El archivo descargado contiene únicamente resultados estadísticos agregados.")
 
 # ---------------------------------------------------------------------
 # PERFILES DE MORBILIDAD
@@ -342,3 +416,9 @@ with st.expander("Verificación de resultados"):
     st.write("**Consultas no clasificadas:**", formato_numero(resultado["consultas_no_clasificadas"]))
     st.write("**Total de Atenciones (ATEMED_ID únicos con CIE10):**", formato_numero(resultado["total_atenciones"]))
     st.caption("Los ATEMED_ID se utilizaron únicamente durante el procesamiento local; no están en datos_publicos.db.")
+
+st.markdown("---")
+st.caption(
+    "Fuente: PRAS 2026 | Elaborado: Unidad Provincial de Estadística y Análisis "
+    "de la Información del Sistema Nacional de Salud."
+)
