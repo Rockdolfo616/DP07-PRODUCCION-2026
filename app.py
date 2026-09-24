@@ -13,6 +13,8 @@ acceso a la base confidencial.
 import io
 import json
 import sqlite3
+import zlib
+import lzma
 from pathlib import Path
 
 import pandas as pd
@@ -122,6 +124,7 @@ def opciones_siguiente(conn, selecciones, indice):
     return vals
 
 def cargar_resultado(conn, selecciones):
+    """Compatible con V3 LZMA/XZ, V2 zlib y V1 JSON."""
     partes, params = [], []
     for _, k in FILTROS:
         v = selecciones.get(k)
@@ -130,8 +133,26 @@ def cargar_resultado(conn, selecciones):
         else:
             partes.append(f"{k} = ?")
             params.append(str(v))
+
+    where = " AND ".join(partes)
+    columnas = {r[1] for r in conn.execute("PRAGMA table_info(estados)").fetchall()}
+
+    if "resultado_blob" in columnas:
+        row = conn.execute(
+            "SELECT resultado_blob FROM estados WHERE " + where + " LIMIT 1",
+            params
+        ).fetchone()
+        if not row:
+            return None
+        blob = bytes(row[0])
+        if blob.startswith(b"\xfd7zXZ\x00"):
+            bruto = lzma.decompress(blob, format=lzma.FORMAT_XZ)
+        else:
+            bruto = zlib.decompress(blob)
+        return json.loads(bruto.decode("utf-8"))
+
     row = conn.execute(
-        "SELECT resultado_json FROM estados WHERE " + " AND ".join(partes) + " LIMIT 1",
+        "SELECT resultado_json FROM estados WHERE " + where + " LIMIT 1",
         params
     ).fetchone()
     return json.loads(row[0]) if row else None
