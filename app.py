@@ -239,9 +239,6 @@ def mostrar_perfil(payload, nombre, numero_causas):
     ] + ETNIAS_ORDEN
     salida = salida[orden]
 
-    filas_causas = salida["CIE 10"] != "TOTAL GENERAL"
-    suma_pct = float(salida.loc[filas_causas, "%"].sum())
-
     formato = {
         "Nro": lambda x: "" if pd.isna(x) else f"{int(x)}",
         "HOMBRE": formato_numero,
@@ -272,11 +269,6 @@ def mostrar_perfil(payload, nombre, numero_causas):
     st.dataframe(sty, use_container_width=True, hide_index=True)
     st.caption("Fuente: PRAS 2026")
     st.caption("Elaborado: Unidad Provincial de Estadística y Análisis de la Información del Sistema Nacional de Salud")
-    st.caption(
-        f"Verificación: Morbilidad + Primera + Definitivo | "
-        f"denominador TOTAL GENERAL (H + M) = {formato_numero(total_general)} | "
-        f"Suma de porcentajes de causas + OTRAS CAUSAS = {suma_pct:.2f}%"
-    )
 
 conn = conexion()
 if conn is None:
@@ -330,6 +322,7 @@ tabla_esp = tabla_especialidad(resultado["especialidad"])
 st.dataframe(estilo_tabla(tabla_esp), use_container_width=True)
 boton_descarga_excel(tabla_esp, "consultas_atenciones_especialidad.xlsx", "Especialidad", "dl_esp")
 st.caption("Fuente: PRAS 2026")
+st.caption("Elaborado: Unidad Provincial de Estadística y Análisis de la Información del Sistema Nacional de Salud")
 
 st.markdown("---")
 st.subheader("Total de Atenciones por Nivel de Atención y Mes")
@@ -337,6 +330,7 @@ tabla_nivel = payload_a_df(resultado["nivel_mes"], "Nivel de Atención")
 st.dataframe(estilo_tabla(tabla_nivel).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
 boton_descarga_excel(tabla_nivel, "atenciones_nivel_mes.xlsx", "Nivel por mes", "dl_nivel")
 st.caption("Fuente: PRAS 2026")
+st.caption("Elaborado: Unidad Provincial de Estadística y Análisis de la Información del Sistema Nacional de Salud")
 
 st.markdown("---")
 st.subheader("Total de Atenciones por Nacionalidad y Mes")
@@ -344,6 +338,7 @@ tabla_nac = payload_a_df(resultado["nacionalidad_mes"], "Nacionalidad")
 st.dataframe(estilo_tabla(tabla_nac).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
 boton_descarga_excel(tabla_nac, "atenciones_nacionalidad_mes.xlsx", "Nacionalidad por mes", "dl_nac")
 st.caption("Fuente: PRAS 2026")
+st.caption("Elaborado: Unidad Provincial de Estadística y Análisis de la Información del Sistema Nacional de Salud")
 
 st.markdown("---")
 st.subheader("Total de Atenciones por Cantón y Mes")
@@ -351,6 +346,7 @@ tabla_canton = payload_a_df(resultado["canton_mes"], "Cantón")
 st.dataframe(estilo_tabla(tabla_canton).set_properties(subset=["Total"], **{"font-weight": "bold"}), use_container_width=True)
 boton_descarga_excel(tabla_canton, "atenciones_canton_mes.xlsx", "Cantón por mes", "dl_canton")
 st.caption("Fuente: PRAS 2026")
+st.caption("Elaborado: Unidad Provincial de Estadística y Análisis de la Información del Sistema Nacional de Salud")
 
 st.markdown("---")
 st.subheader("Numero de Embarazadas")
@@ -364,12 +360,7 @@ else:
     )
     boton_descarga_excel(emb, "numero_embarazadas.xlsx", "Embarazadas", "dl_emb")
     st.caption("Fuente: PRAS 2026")
-    st.caption(
-        "Criterio: pacientes únicas por PCTE_IDE; cédulas de 9 dígitos se homologan "
-        "anteponiendo 0; edad = máxima PCTE_ANIOS; establecimiento = el de mayor "
-        "número de registros por paciente. Los identificadores no forman parte "
-        "de la base publicada."
-    )
+    st.caption("Elaborado: Unidad Provincial de Estadística y Análisis de la Información del Sistema Nacional de Salud")
 
 st.markdown("---")
 st.subheader("DESCARGA DE RESULTADOS AGREGADOS")
@@ -389,8 +380,6 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     key="dl_todo",
 )
-st.caption("El archivo descargado contiene únicamente resultados estadísticos agregados.")
-
 # ---------------------------------------------------------------------
 # PERFILES DE MORBILIDAD
 # ---------------------------------------------------------------------
@@ -405,17 +394,6 @@ mostrar_perfil(resultado["perfil_general"], "PERFIL DE MORBILIDAD GENERAL", nume
 mostrar_perfil(resultado["perfil_materno"], "PERFIL DE MORBILIDAD MATERNO", numero_causas)
 mostrar_perfil(resultado["perfil_mental"], "PERFIL DE MORBILIDAD SALUD MENTAL", numero_causas)
 mostrar_perfil(resultado["perfil_odontologico"], "PERFIL DE MORBILIDAD ODONTOLOGICO", numero_causas)
-
-# ---------------------------------------------------------------------
-# VERIFICACIONES
-# ---------------------------------------------------------------------
-with st.expander("Verificación de resultados"):
-    st.write("**Registros después de filtros:**", formato_numero(resultado["registros"]))
-    st.write("**Total de consultas con CIE10:**", formato_numero(resultado["total_consultas"]))
-    st.write("**Consultas clasificadas en Morbilidad/Prevención:**", formato_numero(resultado["consultas_clasificadas"]))
-    st.write("**Consultas no clasificadas:**", formato_numero(resultado["consultas_no_clasificadas"]))
-    st.write("**Total de Atenciones (ATEMED_ID únicos con CIE10):**", formato_numero(resultado["total_atenciones"]))
-    st.caption("Los ATEMED_ID se utilizaron únicamente durante el procesamiento local; no están en datos_publicos.db.")
 
 st.markdown("---")
 st.caption(
